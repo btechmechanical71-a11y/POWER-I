@@ -1,6 +1,6 @@
 import { TelemetryInput } from "./types";
 
-const REQUIRED_COLUMNS = ["timestamp", "temperature", "humidity", "solar_irradiance"] as const;
+const REQUIRED_COLUMNS = ["timestamp", "ambient_temp_c", "humidity_pct", "solar_irradiance_wm2"] as const;
 
 export interface CsvParseResult {
   rows: TelemetryInput[];
@@ -33,22 +33,22 @@ export function parseTelemetryCsv(text: string): CsvParseResult {
     const lineNo = i + 1;
 
     const rawTs = cells[index.timestamp];
-    const rawTemp = cells[index.temperature];
-    const rawHum = cells[index.humidity];
-    const rawSolar = cells[index.solar_irradiance];
+    const rawTemp = cells[index.ambient_temp_c];
+    const rawHum = cells[index.humidity_pct];
+    const rawSolar = cells[index.solar_irradiance_wm2];
 
     if (!rawTs) rowErrors.push("timestamp is empty");
-    if (!rawTemp) rowErrors.push("temperature is empty");
+    if (!rawTemp) rowErrors.push("ambient_temp_c is empty");
     if (!rawHum) rowErrors.push("humidity is empty");
-    if (!rawSolar) rowErrors.push("solar_irradiance is empty");
+    if (!rawSolar) rowErrors.push("solar_irradiance_wm2 is empty");
 
     const temperature = Number(rawTemp);
     const humidity = Number(rawHum);
     const solarIrradiance = Number(rawSolar);
 
-    if (rawTemp && Number.isNaN(temperature)) rowErrors.push("temperature is not a number");
+    if (rawTemp && Number.isNaN(temperature)) rowErrors.push("ambient_temp_c is not a number");
     if (rawHum && (Number.isNaN(humidity) || humidity < 0 || humidity > 100))
-      rowErrors.push("humidity must be a number 0-100");
+      rowErrors.push("humidity_pct must be a number 0-100");
     if (rawSolar && (Number.isNaN(solarIrradiance) || solarIrradiance < 0))
       rowErrors.push("solar_irradiance must be a non-negative number");
 
@@ -57,7 +57,7 @@ export function parseTelemetryCsv(text: string): CsvParseResult {
     if (rawTs && Number.isNaN(tsParsed)) {
       rowErrors.push("timestamp is not a valid date");
     } else if (rawTs) {
-      timestamp = new Date(tsParsed).toISOString();
+      timestamp = rawTs;
     }
 
     if (rowErrors.length > 0) {
@@ -72,36 +72,9 @@ export function parseTelemetryCsv(text: string): CsvParseResult {
 }
 
 /** Convert forecast results into downloadable CSV text. */
-export function resultsToCsv(rows: { timestamp: string; hour: number; temperature: number; humidity: number; solarIrradiance: number; predictedDemandKw: number; predictedGenerationKw: number; mode: string; isCritical: boolean; confidence: number; isDemo: boolean; }[]): string {
-  const header = [
-    "timestamp",
-    "hour",
-    "temperature",
-    "humidity",
-    "solar_irradiance",
-    "predicted_demand_kw",
-    "predicted_generation_kw",
-    "mode",
-    "is_critical",
-    "confidence",
-    "source",
-  ];
-  const lines = rows.map((r) =>
-    [
-      r.timestamp,
-      r.hour,
-      r.temperature.toFixed(2),
-      r.humidity.toFixed(2),
-      r.solarIrradiance.toFixed(2),
-      r.predictedDemandKw.toFixed(2),
-      r.predictedGenerationKw.toFixed(2),
-      r.mode,
-      r.isCritical ? "true" : "false",
-      r.confidence.toFixed(3),
-      r.isDemo ? "demo" : "quickml",
-    ].join(",")
-  );
-  return [header.join(","), ...lines].join("\n");
+export function resultsToCsv(rows: { timestamp: string; predictedDemandKw: number }[]): string {
+  const lines = rows.map((r) => [r.timestamp, r.predictedDemandKw.toFixed(2)].join(","));
+  return ["timestamp,target_demand_kw", ...lines].join("\n");
 }
 
 /** Trigger a browser download of the given CSV content. */
