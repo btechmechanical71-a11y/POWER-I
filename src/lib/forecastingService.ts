@@ -3,8 +3,8 @@
 // This module computes power demand and renewable generation predictions for
 // hourly telemetry inputs. It ships with a transparent demonstration model so
 // the dashboard is fully functional out of the box. When a real
-// Zoho Catalyst QuickML prediction endpoint is configured (set
-// VITE_QUICKML_PREDICT_URL and VITE_QUICKML_TOKEN in the environment), the
+// secure Catalyst backend forecasting API is configured via
+// VITE_FORECAST_API_URL, the
 // `forecast` function will call it instead of the demo model and the results
 // will be labelled as live QuickML predictions rather than demonstrations.
 
@@ -17,17 +17,8 @@ import { decideTransition } from "./transitionRules";
 
 const DEMO_MODEL_NAME = "POWER-I Demo Heuristic Model";
 
-interface QuickMLConfig {
-  url: string;
-  token: string;
-}
-
-function getQuickMLConfig(): QuickMLConfig | null {
-  const url = import.meta.env.VITE_QUICKML_PREDICT_URL as string | undefined;
-  const token = import.meta.env.VITE_QUICKML_TOKEN as string | undefined;
-  if (url && token) return { url, token };
-  return null;
-}
+// A Catalyst backend must own QuickML credentials; never put API tokens in VITE_ variables.
+const FORECAST_API_URL = import.meta.env.VITE_FORECAST_API_URL as string | undefined;
 
 /** Local hour (0-23) for a given ISO timestamp, using the browser's timezone. */
 function localHourOf(iso: string): number {
@@ -69,22 +60,17 @@ function demoPredict(input: TelemetryInput): { demand: number; generation: numbe
  * assumes the model accepts the four telemetry features and returns a demand
  * prediction. Adjust the mapping to match your QuickML model schema.
  */
-async function quickMLPredict(
-  inputs: TelemetryInput[],
-  config: QuickMLConfig
-): Promise<{ demand: number; generation: number; confidence: number }[]> {
-  const response = await fetch(config.url, {
+async function quickMLPredict(inputs: TelemetryInput[]): Promise<{ demand: number; generation: number; confidence: number }[]> {
+  if (!FORECAST_API_URL) throw new Error("Forecast API not configured");
+  const response = await fetch(FORECAST_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.token}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       inputs: inputs.map((i) => ({
         timestamp: i.timestamp,
-        temperature: i.temperature,
-        humidity: i.humidity,
-        solar_irradiance: i.solarIrradiance,
+        ambient_temp_c: i.temperature,
+        humidity_pct: i.humidity,
+        solar_irradiance_wm2: i.solarIrradiance,
       })),
     }),
   });
@@ -124,14 +110,14 @@ export async function forecast(inputs: TelemetryInput[]): Promise<ForecastRespon
     return { results: [], model: DEMO_MODEL_NAME, isDemo: true };
   }
 
-  const config = getQuickMLConfig();
+  const config = FORECAST_API_URL;
   let isDemo: boolean;
   let model: string;
   let predictions: { demand: number; generation: number; confidence: number }[];
 
   if (config) {
     try {
-      predictions = await quickMLPredict(inputs, config);
+      predictions = await quickMLPredict(inputs);
       isDemo = false;
       model = "Zoho Catalyst QuickML";
     } catch (err) {
@@ -171,5 +157,5 @@ export async function forecast(inputs: TelemetryInput[]): Promise<ForecastRespon
 
 /** Whether a real QuickML endpoint is configured (for UI labelling). */
 export function isQuickMLConfigured(): boolean {
-  return getQuickMLConfig() !== null;
+  return Boolean(FORECAST_API_URL);
 }
