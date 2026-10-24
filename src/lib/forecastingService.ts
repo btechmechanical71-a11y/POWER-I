@@ -3,8 +3,8 @@
 // This module computes power demand and renewable generation predictions for
 // hourly telemetry inputs. It ships with a transparent demonstration model so
 // the dashboard is fully functional out of the box. When a real
-// Zoho Catalyst QuickML prediction endpoint is configured (set
-// VITE_QUICKML_PREDICT_URL and VITE_QUICKML_TOKEN in the environment), the
+// secure Catalyst backend forecasting API is configured via
+// VITE_FORECAST_API_URL, the
 // `forecast` function will call it instead of the demo model and the results
 // will be labelled as live QuickML predictions rather than demonstrations.
 
@@ -68,7 +68,9 @@ async function quickMLPredict(inputs: TelemetryInput[]): Promise<{ demand: numbe
     body: JSON.stringify({
       inputs: inputs.map((i) => ({
         timestamp: i.timestamp,
-        ambient_temp_c: i.temperature,\n        humidity_pct: i.humidity,\n        solar_irradiance_wm2: i.solarIrradiance,
+        ambient_temp_c: i.temperature,
+        humidity_pct: i.humidity,
+        solar_irradiance_wm2: i.solarIrradiance,
       })),
     }),
   });
