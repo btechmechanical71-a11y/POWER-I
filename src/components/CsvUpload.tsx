@@ -36,7 +36,7 @@ export function CsvUpload({ onUpload }: Props) {
         setErrors(["No valid data rows found in the CSV."]);
         return;
       }
-      if (rows.length > 0) {
+      if (rows.length > 24) {\n        setErrors(["Maximum 24 hourly rows allowed."]);\n        return;\n      }\n      if (rows.length > 0 && parseErrors.length === 0) {
         onUpload(rows);
         setInfo(`Loaded ${rows.length} valid row${rows.length === 1 ? "" : "s"} from ${file.name}.`);
       }
@@ -46,7 +46,7 @@ export function CsvUpload({ onUpload }: Props) {
   }
 
   function downloadTemplate() {
-    const header = "timestamp,temperature,humidity,solar_irradiance";
+    const header = "timestamp,ambient_temp_c,humidity_pct,solar_irradiance_wm2";
     const sample = "2026-10-24T00:00,22.5,68,0\n2026-10-24T01:00,21.8,70,0";
     const blob = new Blob([`${header}\n${sample}\n`], { type: "text/csv" });
     const a = document.createElement("a");
